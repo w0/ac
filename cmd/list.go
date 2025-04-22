@@ -4,33 +4,33 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/w0/ac/helpers"
 )
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("list called")
+
+		plist := cmd.Flag("plist")
+		ac, _ := helpers.ReadPlist(plist.Value.String())
+
+		pkgName, _ := cmd.Flags().GetStringArray("name")
+
+		fmt.Printf("%+v\n", ac.GetPackageByName(pkgName))
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// listCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	listCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content")
+	listCmd.PersistentFlags().StringArrayP("name", "n", []string{}, "Package names to display")
+	listCmd.PersistentFlags().StringArrayP("packageId", "i", []string{}, "Package ids to display")
+	listCmd.PersistentFlags().BoolP("optional", "o", false, "Show only optional audio content")
+	listCmd.PersistentFlags().BoolP("mandatory", "m", false, "Show only madatory audio content")
+	listCmd.MarkFlagsMutuallyExclusive("name", "packageId")
 }
