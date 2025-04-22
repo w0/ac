@@ -1,4 +1,4 @@
-package audioplist
+package audiocontent
 
 type Packages struct {
 	ContainsAppleLoops                  bool        `plist:"ContainsAppleLoops"`
@@ -11,6 +11,17 @@ type Packages struct {
 	PackageID                           string      `plist:"PackageID"`
 }
 
-type AudioPlist struct {
+type Content struct {
 	Packages map[string]Packages `plist:"Packages"`
+}
+
+func (ac Content) GetPackageByName(names []string) []Packages {
+	var pkgs []Packages
+
+	for _, name := range names {
+		pkgs = append(pkgs, ac.Packages[name])
+	}
+
+	return pkgs
+
 }

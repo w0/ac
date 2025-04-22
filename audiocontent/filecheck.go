@@ -1,4 +1,4 @@
-package audioplist
+package audiocontent
 
 import "fmt"
 
