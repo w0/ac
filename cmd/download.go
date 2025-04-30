@@ -1,13 +1,11 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/w0/ac/helpers"
 )
 
 // downloadCmd represents the download command
@@ -21,12 +19,36 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("download called")
+		plistPath, err := cmd.Flags().GetString("plist")
+		if err != nil {
+			log.Fatalf("Failed to read flag plist: %v", err)
+		}
+
+		ac, err := helpers.ReadPlist(plistPath)
+
+		log.Printf("ac: %d", len(ac.Packages))
+
+		out, _ := cmd.Flags().GetString("output")
+
+		log.Printf("output: %s", out)
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(downloadCmd)
+
+	downloadCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content (required)")
+	downloadCmd.MarkFlagFilename("plist", "plist")
+	downloadCmd.MarkFlagRequired("plist")
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("failed to get PWD: %v", err)
+	}
+
+	downloadCmd.PersistentFlags().StringP("output", "o", pwd, "Path to the location to download audio content")
+	downloadCmd.MarkFlagDirname("output")
 
 	// Here you will define your flags and configuration settings.
 
