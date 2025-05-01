@@ -14,14 +14,3 @@ type Packages struct {
 type Content struct {
 	Packages map[string]Packages `plist:"Packages"`
 }
-
-func (ac Content) GetPackageByName(names []string) []Packages {
-	var pkgs []Packages
-
-	for _, name := range names {
-		pkgs = append(pkgs, ac.Packages[name])
-	}
-
-	return pkgs
-
-}
