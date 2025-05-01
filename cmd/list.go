@@ -39,12 +39,14 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 
 	listCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content (required)")
+	listCmd.MarkFlagRequired("plist")
+
 	listCmd.PersistentFlags().StringSliceP("name", "n", []string{}, "Package names to display")
 	listCmd.PersistentFlags().StringSliceP("packageId", "i", []string{}, "Package ids to display")
+	listCmd.MarkFlagsMutuallyExclusive("name", "packageId")
+
 	listCmd.PersistentFlags().BoolP("optional", "o", false, "Show only optional audio content")
 	listCmd.PersistentFlags().BoolP("mandatory", "m", false, "Show only madatory audio content")
-	listCmd.MarkFlagsMutuallyExclusive("name", "packageId")
-	listCmd.MarkFlagRequired("plist")
 
 	listCmd.PersistentFlags().BoolP("json", "j", false, "Output audio content info as json")
 }
