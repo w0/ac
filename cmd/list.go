@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/w0/ac/audiocontent"
@@ -47,6 +48,7 @@ func init() {
 
 	listCmd.PersistentFlags().BoolP("optional", "o", false, "Show only optional audio content")
 	listCmd.PersistentFlags().BoolP("mandatory", "m", false, "Show only madatory audio content")
+	listCmd.MarkFlagsMutuallyExclusive("optional", "mandatory")
 
 	listCmd.PersistentFlags().BoolP("json", "j", false, "Output audio content info as json")
 }
@@ -59,6 +61,24 @@ func buildFilterPipeline(cmd *cobra.Command) Filter {
 	if names, _ := cmd.PersistentFlags().GetStringSlice("name"); len(names) > 0 {
 		filters = append(filters, func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
 			return filterByName(pkgs, names)
+		})
+	}
+
+	if ids, _ := cmd.PersistentFlags().GetStringSlice("packageId"); len(ids) > 0 {
+		filters = append(filters, func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+			return filterById(pkgs, ids)
+		})
+	}
+
+	if optional, _ := cmd.PersistentFlags().GetBool("optional"); optional {
+		filters = append(filters, func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+			return filterOptional(pkgs)
+		})
+	}
+
+	if mandatory, _ := cmd.PersistentFlags().GetBool("mandatory"); mandatory {
+		filters = append(filters, func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+			return filterMandatory(pkgs)
 		})
 	}
 
@@ -83,6 +103,46 @@ func filterByName(pkgs map[string]audiocontent.Packages, names []string) map[str
 	for _, name := range names {
 		if val, ok := pkgs[name]; ok {
 			result[name] = val
+		}
+	}
+
+	return result
+}
+
+func filterById(pkgs map[string]audiocontent.Packages, ids []string) map[string]audiocontent.Packages {
+	if len(ids) == 0 {
+		return pkgs
+	}
+
+	result := make(map[string]audiocontent.Packages)
+
+	for k, v := range pkgs {
+		if slices.Contains(ids, v.PackageID) {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+func filterOptional(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+	result := make(map[string]audiocontent.Packages)
+
+	for k, v := range pkgs {
+		if v.IsMandatory == false {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+func filterMandatory(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+	result := make(map[string]audiocontent.Packages)
+
+	for k, v := range pkgs {
+		if v.IsMandatory == true {
+			result[k] = v
 		}
 	}
 
