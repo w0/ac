@@ -1,23 +1,22 @@
 package cmd
 
 import (
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
+	"github.com/w0/ac/audiocontent"
 	"github.com/w0/ac/helpers"
 )
 
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
 	Use:   "download",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		plistPath, err := cmd.Flags().GetString("plist")
 		if err != nil {
@@ -25,12 +24,15 @@ to quickly create a Cobra application.`,
 		}
 
 		ac, err := helpers.ReadPlist(plistPath)
+		if err != nil {
+			log.Fatalf("Failed to parse audio content: %v", err)
+		}
 
-		log.Printf("ac: %d", len(ac.Packages))
+		pipeline := helpers.BuildFilterPipeline(cmd)
 
-		out, _ := cmd.Flags().GetString("output")
+		filtered := pipeline(ac.Packages)
 
-		log.Printf("output: %s", out)
+		downloadPkgs(filtered, cmd)
 
 	},
 }
@@ -38,25 +40,46 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(downloadCmd)
 
-	downloadCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content (required)")
-	downloadCmd.MarkFlagFilename("plist", "plist")
-	downloadCmd.MarkFlagRequired("plist")
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("failed to get PWD: %v", err)
 	}
 
-	downloadCmd.PersistentFlags().StringP("output", "o", pwd, "Path to the location to download audio content")
-	downloadCmd.MarkFlagDirname("output")
+	downloadCmd.PersistentFlags().StringP("output", "d", pwd, "Path to the location to download audio content")
+	downloadCmd.MarkPersistentFlagDirname("output")
 
-	// Here you will define your flags and configuration settings.
+	downloadCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content (required)")
+	downloadCmd.MarkPersistentFlagFilename("plist", "plist")
+	downloadCmd.MarkPersistentFlagRequired("plist")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// downloadCmd.PersistentFlags().String("foo", "", "A help for foo")
+	downloadCmd.PersistentFlags().StringSliceP("name", "n", []string{}, "Package names to download")
+	downloadCmd.PersistentFlags().StringSliceP("packageId", "i", []string{}, "Package ids to download")
+	downloadCmd.MarkFlagsMutuallyExclusive("name", "packageId")
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// downloadCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	downloadCmd.PersistentFlags().BoolP("optional", "o", false, "Download only optional audio content")
+	downloadCmd.PersistentFlags().BoolP("mandatory", "m", false, "Download only madatory audio content")
+	downloadCmd.MarkFlagsMutuallyExclusive("optional", "mandatory")
+}
+
+func downloadPkgs(pkgs map[string]audiocontent.Packages, cmd *cobra.Command) {
+	log.Printf("I have %d pkgs to download", len(pkgs))
+
+	downloadDir, _ := cmd.PersistentFlags().GetString("output")
+
+	for k, v := range pkgs {
+		filename := k + ".pkg"
+		outFile := path.Join(downloadDir, filename)
+
+		file, _ := os.Create(outFile)
+		defer file.Close()
+
+		resp, err := http.Get(string(v.DownloadName))
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		defer resp.Body.Close()
+
+		io.Copy(file, resp.Body)
+	}
 }
