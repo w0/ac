@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
+	"github.com/w0/ac/audiocontent"
 	"github.com/w0/ac/helpers"
 )
 
@@ -19,18 +22,15 @@ var listCmd = &cobra.Command{
 		}
 
 		ac, err := helpers.ReadPlist(plistPath)
-
 		if err != nil {
 			log.Fatalf("Failed to parse audio content: %v", err)
 		}
 
-		pkgName, err := cmd.Flags().GetStringSlice("name")
+		pipeline := buildFilterPipeline(cmd)
 
-		if err != nil {
-			log.Fatalf("Failed to parse name: %v", err)
-		}
+		filtered := pipeline(ac.Packages)
 
-		helpers.PrettyPrint(pkgName, ac)
+		outputResults(cmd, filtered)
 
 	},
 }
@@ -45,4 +45,74 @@ func init() {
 	listCmd.PersistentFlags().BoolP("mandatory", "m", false, "Show only madatory audio content")
 	listCmd.MarkFlagsMutuallyExclusive("name", "packageId")
 	listCmd.MarkFlagRequired("plist")
+
+	listCmd.PersistentFlags().BoolP("json", "j", false, "Output audio content info as json")
+}
+
+type Filter func(map[string]audiocontent.Packages) map[string]audiocontent.Packages
+
+func buildFilterPipeline(cmd *cobra.Command) Filter {
+	var filters []Filter
+
+	if names, _ := cmd.PersistentFlags().GetStringSlice("name"); len(names) > 0 {
+		filters = append(filters, func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+			return filterByName(pkgs, names)
+		})
+	}
+
+	return func(pkgs map[string]audiocontent.Packages) map[string]audiocontent.Packages {
+		result := pkgs
+		for _, filter := range filters {
+			result = filter(result)
+		}
+
+		return result
+	}
+
+}
+
+func filterByName(pkgs map[string]audiocontent.Packages, names []string) map[string]audiocontent.Packages {
+	if len(names) == 0 {
+		return pkgs
+	}
+
+	result := make(map[string]audiocontent.Packages)
+
+	for _, name := range names {
+		if val, ok := pkgs[name]; ok {
+			result[name] = val
+		}
+	}
+
+	return result
+}
+
+func outputResults(cmd *cobra.Command, pkgs map[string]audiocontent.Packages) {
+	outJson, _ := cmd.Flags().GetBool("json")
+
+	if outJson {
+		jsonOut, err := json.MarshalIndent(&pkgs, "", "  ")
+		if err != nil {
+			log.Fatalf("Failed to generate json: %v", err)
+		}
+
+		fmt.Println(string(jsonOut))
+	} else {
+		for k, v := range pkgs {
+			fmt.Printf("\n-- %s --\n", k)
+			fmt.Printf("  - ContainsAppleLoops: %t\n", v.ContainsAppleLoops)
+			fmt.Printf("  - ContainsGarageBandLegacyInstruments: %t\n", v.ContainsGarageBandLegacyInstruments)
+			fmt.Printf("  - DownloadName: %s\n", v.DownloadName)
+			fmt.Printf("  - DownloadSize: %0.2f Mb\n", helpers.ConvertToMB(v.DownloadSize))
+			fmt.Printf("  - FileCheck:\n")
+
+			for _, fc := range v.FileCheck {
+				fmt.Printf("    * %s\n", fc)
+			}
+
+			fmt.Printf("  - InstalledSize: %0.2f Mb\n", helpers.ConvertToMB(v.InstalledSize))
+			fmt.Printf("  - IsMandatory: %t\n", v.IsMandatory)
+			fmt.Printf("  - PackageID: %s\n", v.PackageID)
+		}
+	}
 }
