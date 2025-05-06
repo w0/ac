@@ -32,7 +32,19 @@ var downloadCmd = &cobra.Command{
 
 		filtered := pipeline(ac.Packages)
 
-		downloadPkgs(filtered, cmd)
+		downloadDir, _ := cmd.PersistentFlags().GetString("output")
+		downloadLimit, _ := cmd.PersistentFlags().GetInt("limit")
+
+		jobs := make(chan audiocontent.Packages, downloadLimit)
+
+		for w := 1; w <= 3; w++ {
+			go downloadContent(downloadDir, jobs)
+		}
+
+		for _, v := range filtered {
+			jobs <- v
+		}
+		close(jobs)
 
 	},
 }
@@ -59,27 +71,24 @@ func init() {
 	downloadCmd.PersistentFlags().BoolP("optional", "o", false, "Download only optional audio content")
 	downloadCmd.PersistentFlags().BoolP("mandatory", "m", false, "Download only madatory audio content")
 	downloadCmd.MarkFlagsMutuallyExclusive("optional", "mandatory")
+
+	downloadCmd.PersistentFlags().IntP("limit", "l", 3, "Limit the concurrent download of audio content")
 }
 
-func downloadPkgs(pkgs map[string]audiocontent.Packages, cmd *cobra.Command) {
-	log.Printf("I have %d pkgs to download", len(pkgs))
+func downloadContent(output string, jobs <-chan audiocontent.Packages) {
+	for i := range jobs {
+		file := path.Join(output, path.Base(string(i.DownloadName)))
 
-	downloadDir, _ := cmd.PersistentFlags().GetString("output")
+		f, _ := os.Create(file)
+		defer f.Close()
 
-	for k, v := range pkgs {
-		filename := k + ".pkg"
-		outFile := path.Join(downloadDir, filename)
-
-		file, _ := os.Create(outFile)
-		defer file.Close()
-
-		resp, err := http.Get(string(v.DownloadName))
+		req, err := http.Get(string(i.DownloadName))
 		if err != nil {
-			log.Fatalln(err)
+			log.Printf("FAILED: %s", i.DownloadName)
 		}
 
-		defer resp.Body.Close()
+		defer req.Body.Close()
 
-		io.Copy(file, resp.Body)
+		io.Copy(f, req.Body)
 	}
 }
