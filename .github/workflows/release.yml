@@ -69,16 +69,30 @@ jobs:
           echo "ARCHIVE_FILENAME=${ARCHIVE_FILENAME}" >> $GITHUB_ENV
         shell: bash
 
-      - name: Build Go binary
+      - name: Build Go binary (Windows)
+        if: runner.os == 'Windows'
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0 # Disable CGO for better cross-compilation and static binaries
+          CGO_ENABLED: 0
+        shell: pwsh
+        run: |
+          Write-Host "Building: ${{ env.BINARY_FILENAME }} for GOOS=$env:GOOS GOARCH=$env:GOARCH"
+          go build -v -ldflags="-s -w" -o "${{ env.BINARY_FILENAME }}" "${{ env.MAIN_PACKAGE_PATH }}"
+          Write-Host "Build complete. Verifying file: ${{ env.BINARY_FILENAME }}"
+          Get-ChildItem -Path "${{ env.BINARY_FILENAME }}" | Format-List
+
+      - name: Build Go binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
         run: |
           echo "Building: ${{ env.BINARY_FILENAME }} for GOOS=${GOOS} GOARCH=${GOARCH}"
           go build -v -ldflags="-s -w" -o "${{ env.BINARY_FILENAME }}" "${{ env.MAIN_PACKAGE_PATH }}"
-          echo "Build complete: ${{ env.BINARY_FILENAME }}"
-          ls -l # List files to verify binary exists
+          echo "Build complete. Verifying file: ${{ env.BINARY_FILENAME }}"
+          ls -l "${{ env.BINARY_FILENAME }}"
 
       - name: Create Zip Archive (Linux/macOS)
         if: runner.os != 'Windows'
