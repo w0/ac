@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -30,13 +31,18 @@ var downloadCmd = &cobra.Command{
 			log.Fatalf("Failed to parse audio content: %v", err)
 		}
 
+		downloadLimit, err := cmd.Flags().GetInt("limit")
+		if err != nil {
+			log.Fatalf("Failed to parse limit: %v", err)
+		}
+
 		pipeline := helpers.BuildFilterPipeline(cmd)
 
 		filtered := pipeline(ac.Packages)
 
 		downloadDir, _ := cmd.PersistentFlags().GetString("output")
 
-		downloadContent(downloadDir, filtered)
+		downloadContent(downloadDir, downloadLimit, filtered)
 
 	},
 }
@@ -67,7 +73,7 @@ func init() {
 	downloadCmd.PersistentFlags().IntP("limit", "l", 3, "Limit the concurrent download of audio content")
 }
 
-func downloadContent(output string, pkgs map[string]audiocontent.Packages) {
+func downloadContent(output string, limit int, pkgs map[string]audiocontent.Packages) {
 
 	log.Printf("Downloading %d packages.", len(pkgs))
 
@@ -77,7 +83,8 @@ func downloadContent(output string, pkgs map[string]audiocontent.Packages) {
 
 	wg.Add(len(pkgs))
 
-	//activeDownloads := 0
+	// TODO: fix goroutine downloads, ends before all downloads finish.
+	//limitChan := make(chan struct{}, limit)
 
 	for pkgName, values := range pkgs {
 
@@ -96,18 +103,26 @@ func downloadContent(output string, pkgs map[string]audiocontent.Packages) {
 				decor.Name(pkgName),
 				decor.Counters(decor.SizeB1024(0), " %.2f/%.2f"),
 			),
-
 			mpb.AppendDecorators(decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), "done!")),
 		)
 
 		func(bar *mpb.Bar) {
-			defer wg.Done()
+			wg.Done()
 
 			proxy := bar.ProxyReader(resp.Body)
 
 			defer proxy.Close()
 
-			io.Copy(io.Discard, proxy)
+			fileName := path.Base(string(values.DownloadName))
+
+			outfile, err := os.Create(path.Join(output, fileName))
+			if err != nil {
+				log.Fatalf("Failed to create outfile %v", err)
+			}
+
+			defer outfile.Close()
+
+			io.Copy(outfile, proxy)
 
 		}(bar)
 
