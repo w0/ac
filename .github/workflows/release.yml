@@ -1,0 +1,103 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build for ${{ matrix.os_name }}/${{ matrix.goarch }}
+    strategy:
+      matrix:
+        include:
+          - os_name: linux
+            goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+          - os_name: linux
+            goos: linux
+            goarch: arm64
+            runner: ubuntu-latest
+          - os_name: macos
+            goos: darwin
+            goarch: amd64
+            runner: macos-latest
+          - os_name: macos
+            goos: darwin
+            goarch: arm64
+            runner: macos-latest
+          - os_name: windows
+            goos: windows
+            goarch: amd64
+            runner: windows-latest
+            output_suffix: .exe
+          - os_name: windows
+            goos: windows
+            goarch: arm64
+            runner: windows-latest
+            output_suffix: .exe
+
+    runs-on: ${{ matrix.runner }}
+
+    env:
+      PROJECT_NAME: ac
+      GO_VERSION: "1.24"
+
+      MAIN_PACKAGE_PATH: "."
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up environment variables for names
+        id: set_names
+        run: |
+
+          BINARY_FILENAME="${PROJECT_NAME}-${{ matrix.os_name }}-${{ matrix.goarch }}${{ matrix.output_suffix }}"
+          ARCHIVE_FILENAME="${PROJECT_NAME}-${{ matrix.os_name }}-${{ matrix.goarch }}.zip"
+
+          echo "BINARY_FILENAME=${BINARY_FILENAME}" >> $GITHUB_ENV
+          echo "ARCHIVE_FILENAME=${ARCHIVE_FILENAME}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Build Go binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0 # Disable CGO for better cross-compilation and static binaries
+        run: |
+          echo "Building: ${{ env.BINARY_FILENAME }} for GOOS=${GOOS} GOARCH=${GOARCH}"
+          go build -v -ldflags="-s -w" -o "${{ env.BINARY_FILENAME }}" "${{ env.MAIN_PACKAGE_PATH }}"
+          echo "Build complete: ${{ env.BINARY_FILENAME }}"
+          ls -l # List files to verify binary exists
+
+      - name: Create Zip Archive (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Zipping ${{ env.BINARY_FILENAME }} into ${{ env.ARCHIVE_FILENAME }}"
+          zip "${{ env.ARCHIVE_FILENAME }}" "${{ env.BINARY_FILENAME }}"
+          ls -l # List files to verify archive exists
+
+      - name: Create Zip Archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Zipping ${{ env.BINARY_FILENAME }} into ${{ env.ARCHIVE_FILENAME }}"
+          Compress-Archive -Path "${{ env.BINARY_FILENAME }}" -DestinationPath "${{ env.ARCHIVE_FILENAME }}"
+          Get-ChildItem . # List files to verify archive exists
+        shell: pwsh
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARCHIVE_FILENAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
