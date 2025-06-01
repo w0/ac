@@ -1,24 +1,18 @@
 package cmd
 
 import (
-	"io"
 	"log"
-	"net/http"
 	"os"
-	"path"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/vbauerster/mpb/v8"
-	"github.com/vbauerster/mpb/v8/decor"
-	"github.com/w0/ac/audiocontent"
 	"github.com/w0/ac/helpers"
 )
 
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
 	Use:   "download",
-	Short: "",
+	Short: "download available audio content pkgs.",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		plistPath, err := cmd.Flags().GetString("plist")
@@ -31,18 +25,24 @@ var downloadCmd = &cobra.Command{
 			log.Fatalf("Failed to parse audio content: %v", err)
 		}
 
-		downloadLimit, err := cmd.Flags().GetInt("limit")
-		if err != nil {
-			log.Fatalf("Failed to parse limit: %v", err)
-		}
-
 		pipeline := helpers.BuildFilterPipeline(cmd)
 
 		filtered := pipeline(ac.Packages)
 
 		downloadDir, _ := cmd.PersistentFlags().GetString("output")
 
-		downloadContent(downloadDir, downloadLimit, filtered)
+		progrss := mpb.NewWithContext(
+			cmd.Context(),
+			mpb.WithAutoRefresh(),
+			mpb.WithWidth(60))
+
+		for pkgName, pkgInfo := range filtered {
+
+			helpers.DownloadWithProgress(progrss, pkgName, &pkgInfo, downloadDir)
+
+		}
+
+		progrss.Wait()
 
 	},
 }
@@ -69,63 +69,5 @@ func init() {
 	downloadCmd.PersistentFlags().BoolP("optional", "o", false, "Download only optional audio content")
 	downloadCmd.PersistentFlags().BoolP("mandatory", "m", false, "Download only madatory audio content")
 	downloadCmd.MarkFlagsMutuallyExclusive("optional", "mandatory")
-
-	downloadCmd.PersistentFlags().IntP("limit", "l", 3, "Limit the concurrent download of audio content")
-}
-
-func downloadContent(output string, limit int, pkgs map[string]audiocontent.Packages) {
-
-	log.Printf("Downloading %d packages.", len(pkgs))
-
-	var wg sync.WaitGroup
-
-	progress := mpb.New(mpb.WithAutoRefresh(), mpb.WithWaitGroup(&wg))
-
-	wg.Add(len(pkgs))
-
-	// TODO: fix goroutine downloads, ends before all downloads finish.
-	//limitChan := make(chan struct{}, limit)
-
-	for pkgName, values := range pkgs {
-
-		resp, err := http.Get(string(values.DownloadName))
-		if err != nil {
-			log.Fatalf("Failed to fetch %s: %v", pkgName, err)
-		}
-
-		defer resp.Body.Close()
-
-		bar := progress.New(
-			resp.ContentLength,
-			mpb.BarStyle().TipOnComplete(),
-			mpb.BarFillerClearOnComplete(),
-			mpb.PrependDecorators(
-				decor.Name(pkgName),
-				decor.Counters(decor.SizeB1024(0), " %.2f/%.2f"),
-			),
-			mpb.AppendDecorators(decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), "done!")),
-		)
-
-		func(bar *mpb.Bar) {
-			wg.Done()
-
-			proxy := bar.ProxyReader(resp.Body)
-
-			defer proxy.Close()
-
-			fileName := path.Base(string(values.DownloadName))
-
-			outfile, err := os.Create(path.Join(output, fileName))
-			if err != nil {
-				log.Fatalf("Failed to create outfile %v", err)
-			}
-
-			defer outfile.Close()
-
-			io.Copy(outfile, proxy)
-
-		}(bar)
-
-	}
 
 }

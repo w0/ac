@@ -1,11 +1,17 @@
 package helpers
 
 import (
+	"io"
+	"log"
+	"net/http"
 	"os"
+	"path"
 	"slices"
 
 	"github.com/micromdm/plist"
 	"github.com/spf13/cobra"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 	"github.com/w0/ac/audiocontent"
 )
 
@@ -126,4 +132,54 @@ func filterMandatory(pkgs map[string]audiocontent.Packages) map[string]audiocont
 	}
 
 	return result
+}
+
+func newProgressBar(progress *mpb.Progress, name string, contentLen int64) *mpb.Bar {
+	return progress.New(
+		contentLen,
+		mpb.BarStyle().TipOnComplete(),
+		mpb.BarFillerClearOnComplete(),
+		mpb.PrependDecorators(
+			decor.Name(name),
+			decor.Counters(decor.SizeB1024(0), " %.2f/%.2f"),
+		),
+		mpb.AppendDecorators(decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), "done!")),
+	)
+}
+
+func DownloadWithProgress(progress *mpb.Progress, pkgName string, pkgInfo *audiocontent.Packages, outputDir string) {
+
+	resp, err := http.Get(string(pkgInfo.DownloadName))
+	if err != nil {
+		log.Fatalf("Failed to fetch %s: %v", pkgName, err)
+	}
+
+	defer resp.Body.Close()
+
+	bar := progress.New(
+		resp.ContentLength,
+		mpb.BarStyle().TipOnComplete(),
+		mpb.BarFillerClearOnComplete(),
+		mpb.PrependDecorators(
+			decor.Name(pkgName),
+			decor.Counters(decor.SizeB1024(0), " %.2f/%.2f"),
+		),
+		mpb.AppendDecorators(decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), "done!")),
+	)
+
+	downloadProxy := bar.ProxyReader(resp.Body)
+
+	defer downloadProxy.Close()
+
+	fileName := path.Base(string(pkgInfo.DownloadName))
+
+	outFile, err := os.Create(path.Join(outputDir, fileName))
+	if err != nil {
+		log.Fatalf("Failed to create outfile %v", err)
+	}
+
+	defer outFile.Close()
+
+	io.Copy(outFile, downloadProxy)
+
 }
