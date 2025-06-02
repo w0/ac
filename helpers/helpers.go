@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -147,11 +146,11 @@ func newProgressBar(progress *mpb.Progress, name string, contentLen int64) *mpb.
 	)
 }
 
-func DownloadWithProgress(progress *mpb.Progress, pkgName string, pkgInfo *audiocontent.Packages, outputDir string) {
+func downloadWithProgress(progress *mpb.Progress, pkgName string, pkgInfo *audiocontent.Packages, downloadDir string) (string, error) {
 
 	resp, err := http.Get(string(pkgInfo.DownloadName))
 	if err != nil {
-		log.Fatalf("Failed to fetch %s: %v", pkgName, err)
+		return "", err
 	}
 
 	defer resp.Body.Close()
@@ -171,15 +170,35 @@ func DownloadWithProgress(progress *mpb.Progress, pkgName string, pkgInfo *audio
 
 	defer downloadProxy.Close()
 
-	fileName := path.Base(string(pkgInfo.DownloadName))
+	filePath := path.Join(downloadDir, path.Base(string(pkgInfo.DownloadName)))
 
-	outFile, err := os.Create(path.Join(outputDir, fileName))
+	outFile, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("Failed to create outfile %v", err)
+		return "", err
 	}
 
 	defer outFile.Close()
 
 	io.Copy(outFile, downloadProxy)
 
+	return filePath, err
+
+}
+
+func DownloadPackages(progress *mpb.Progress, packages *map[string]audiocontent.Packages, downloadDir string) ([]string, error) {
+
+	var downloaded []string
+
+	for pkgName, pkgInfo := range *packages {
+		filePath, err := downloadWithProgress(progress, pkgName, &pkgInfo, downloadDir)
+
+		if err != nil {
+			return nil, err
+		}
+
+		downloaded = append(downloaded, filePath)
+
+	}
+
+	return downloaded, nil
 }

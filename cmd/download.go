@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vbauerster/mpb/v8"
@@ -31,18 +32,14 @@ var downloadCmd = &cobra.Command{
 
 		downloadDir, _ := cmd.PersistentFlags().GetString("output")
 
-		progrss := mpb.NewWithContext(
+		progress := mpb.NewWithContext(
 			cmd.Context(),
-			mpb.WithAutoRefresh(),
+			mpb.WithRefreshRate(240*time.Millisecond),
 			mpb.WithWidth(60))
 
-		for pkgName, pkgInfo := range filtered {
+		_, err = helpers.DownloadPackages(progress, &filtered, downloadDir)
 
-			helpers.DownloadWithProgress(progrss, pkgName, &pkgInfo, downloadDir)
-
-		}
-
-		progrss.Wait()
+		progress.Wait()
 
 	},
 }
