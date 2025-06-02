@@ -33,22 +33,29 @@ var installCmd = &cobra.Command{
 
 		downloadDir, _ := cmd.PersistentFlags().GetString("output")
 
-		progress := mpb.NewWithContext(
+		downProgress := mpb.NewWithContext(
 			cmd.Context(),
 			mpb.WithRefreshRate(240*time.Millisecond),
 			mpb.WithWidth(60))
 
-		installers, err := helpers.DownloadPackages(progress, &filtered, downloadDir)
+		installers, err := helpers.DownloadPackages(downProgress, &filtered, downloadDir)
 		if err != nil {
 			log.Fatalf("Failed download pkgs: %s", err)
 		}
 
-		err = helpers.InstallPackages(progress, installers)
+		downProgress.Wait()
+
+		installProgress := mpb.NewWithContext(
+			cmd.Context(),
+			mpb.WithRefreshRate(60*time.Millisecond),
+			mpb.WithWidth(60))
+
+		err = helpers.InstallPackages(installProgress, installers)
 		if err != nil {
 			log.Fatalf("Failed installing pkgs: %s", err)
 		}
 
-		progress.Wait()
+		installProgress.Wait()
 
 	},
 }

@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -195,11 +196,28 @@ func InstallPackages(progress *mpb.Progress, installers []string) error {
 
 	for _, pkg := range installers {
 
+		fileName := path.Base(pkg)
+
+		bar := progress.AddSpinner(
+			1,
+			mpb.PrependDecorators(
+				decor.Name(fmt.Sprintf("Installing: %s", fileName)),
+			),
+			mpb.AppendDecorators(
+				decor.Elapsed(decor.ET_STYLE_GO),
+			),
+		)
+
 		installerExec := exec.Command("/usr/sbin/installer", "-pkg", pkg, "-target", "/")
 		err := installerExec.Run()
 		if err != nil {
+			bar.Abort(false)
+			bar.Wait()
 			return err
 		}
+
+		bar.SetCurrent(1)
+		bar.Wait()
 
 	}
 
