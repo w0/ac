@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"slices"
 
@@ -201,4 +202,19 @@ func DownloadPackages(progress *mpb.Progress, packages *map[string]audiocontent.
 	}
 
 	return downloaded, nil
+}
+
+func InstallPackages(progress *mpb.Progress, installers []string) error {
+
+	for _, pkg := range installers {
+
+		installerExec := exec.Command("/usr/sbin/installer", "-pkg", pkg, "-target", "/")
+		err := installerExec.Run()
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }

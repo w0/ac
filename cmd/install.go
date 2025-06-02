@@ -1,40 +1,83 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"os"
+	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/w0/ac/helpers"
 )
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
 	Use:   "install",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "install available audio content pkgs",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("install called")
+		plistPath, err := cmd.Flags().GetString("plist")
+		if err != nil {
+			log.Fatalf("Failed to read flag plist: %s", err)
+		}
+
+		ac, err := helpers.ReadPlist(plistPath)
+		if err != nil {
+			log.Fatalf("Failed to parse audio content: %s", err)
+		}
+
+		pipeline := helpers.BuildFilterPipeline(cmd)
+
+		filtered := pipeline(ac.Packages)
+
+		downloadDir, _ := cmd.PersistentFlags().GetString("output")
+
+		progress := mpb.NewWithContext(
+			cmd.Context(),
+			mpb.WithRefreshRate(240*time.Millisecond),
+			mpb.WithWidth(60))
+
+		installers, err := helpers.DownloadPackages(progress, &filtered, downloadDir)
+		if err != nil {
+			log.Fatalf("Failed download pkgs: %s", err)
+		}
+
+		err = helpers.InstallPackages(progress, installers)
+		if err != nil {
+			log.Fatalf("Failed installing pkgs: %s", err)
+		}
+
+		progress.Wait()
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(installCmd)
 
-	// Here you will define your flags and configuration settings.
+	if os := runtime.GOOS; os != "darwin" {
+		log.Fatalf("install only supported on macOS.\n")
+	}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("failed to get PWD: %v", err)
+	}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	installCmd.PersistentFlags().StringP("output", "d", pwd, "Path to the location to download audio content")
+	installCmd.MarkPersistentFlagDirname("output")
+
+	installCmd.PersistentFlags().StringP("plist", "p", "", "Path to plist containing audio content (required)")
+	installCmd.MarkPersistentFlagFilename("plist", "plist")
+	installCmd.MarkPersistentFlagRequired("plist")
+
+	installCmd.PersistentFlags().StringSliceP("name", "n", []string{}, "Package names to download")
+	installCmd.PersistentFlags().StringSliceP("packageId", "i", []string{}, "Package ids to download")
+	installCmd.MarkFlagsMutuallyExclusive("name", "packageId")
+
+	installCmd.PersistentFlags().BoolP("optional", "o", false, "Download only optional audio content")
+	installCmd.PersistentFlags().BoolP("mandatory", "m", false, "Download only madatory audio content")
+	installCmd.MarkFlagsMutuallyExclusive("optional", "mandatory")
+
 }
