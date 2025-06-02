@@ -134,19 +134,6 @@ func filterMandatory(pkgs map[string]audiocontent.Packages) map[string]audiocont
 	return result
 }
 
-func newProgressBar(progress *mpb.Progress, name string, contentLen int64) *mpb.Bar {
-	return progress.New(
-		contentLen,
-		mpb.BarStyle().TipOnComplete(),
-		mpb.BarFillerClearOnComplete(),
-		mpb.PrependDecorators(
-			decor.Name(name),
-			decor.Counters(decor.SizeB1024(0), " %.2f/%.2f"),
-		),
-		mpb.AppendDecorators(decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), "done!")),
-	)
-}
-
 func downloadWithProgress(progress *mpb.Progress, pkgName string, pkgInfo *audiocontent.Packages, downloadDir string) (string, error) {
 
 	resp, err := http.Get(string(pkgInfo.DownloadName))
