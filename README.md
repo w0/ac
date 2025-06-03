@@ -53,4 +53,8 @@ Download multiple pkgs and save them to the current working directory.
 
 ## install
 
-`under construction`
+ac can attempt to install the downloaded content packages for you. You must run `ac` as root for this.
+
+```bash
+ac install -p /path/to/plist.plist -m
+```
