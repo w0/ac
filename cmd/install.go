@@ -17,6 +17,10 @@ var installCmd = &cobra.Command{
 	Short: "install available audio content pkgs",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		if os := runtime.GOOS; os != "darwin" {
+			log.Fatalf("install only supported on macOS.\n")
+		}
+
 		plistPath, err := cmd.Flags().GetString("plist")
 		if err != nil {
 			log.Fatalf("Failed to read flag plist: %s", err)
@@ -62,10 +66,6 @@ var installCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-
-	if os := runtime.GOOS; os != "darwin" {
-		log.Fatalf("install only supported on macOS.\n")
-	}
 
 	pwd, err := os.Getwd()
 	if err != nil {
