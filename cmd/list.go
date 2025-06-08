@@ -14,7 +14,12 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list and search for available audio content",
-	Long:  ``,
+	Long: `List detailed information about available audio content packages.
+	The available packages are based on the plist stored in the application bundle.
+
+	ac list -p /path/to/plist.plist -m
+
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		plistPath, err := cmd.Flags().GetString("plist")
 		if err != nil {

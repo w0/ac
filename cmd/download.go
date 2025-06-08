@@ -14,7 +14,12 @@ import (
 var downloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "download available audio content pkgs.",
-	Long:  ``,
+	Long: `Download audio content based on filtered packages.
+	Example: Download all mandatory packages.
+	ac download -p /path/to/plist.plist -m
+
+	Note: The plist is stored in the application bundle.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		plistPath, err := cmd.Flags().GetString("plist")
 		if err != nil {

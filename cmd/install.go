@@ -15,7 +15,12 @@ import (
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "install available audio content pkgs",
-	Long:  ``,
+	Long: `Attempt to download and install audio content based on the filtered selection.
+	Example: Download all mandatory audio content.
+	ac install -p /path/to/plist.plist -m
+
+	Note: The plist is stored in the bundle off the application.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if os := runtime.GOOS; os != "darwin" {
 			log.Fatalf("install only supported on macOS.\n")
