@@ -4,6 +4,10 @@
 
 <img width="800" src="./demo.gif" />
 
+# Why should I use `ac`?
+
+With `ac` you can easily manage Apple audio content across a fleet of Macs. Allowing you to easily download audio content to meet the needs of a given system or fleet. With ac you can get just the content you need and build repeatable deployments utilizing MDM or shell scripts! 
+
 # Installation
 
 Download the available binaries from the [releases]('github.com/w0/ac/releases'). If you don't see a build for your system. Try using the `go install` option.
