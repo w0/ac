@@ -16,6 +16,14 @@ Download the available binaries from the [releases]('github.com/w0/ac/releases')
 
 `go install github.com/w0/ac@latest`
 
+# Quick Start
+
+Download all the mandatory audio content files.
+
+```bash
+ac download -p ~/Path/To/logicpro1100.plist -m
+```
+
 # Usage
 
 View available commands and built in help
