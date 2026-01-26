@@ -4,7 +4,7 @@
 
 <img width="800" src="./demo.gif" />
 
-# Why should I use `ac`?
+# Motivation
 
 With `ac` you can easily manage Apple audio content across a fleet of Macs. Allowing you to easily download audio content to meet the needs of a given system or fleet. With ac you can get just the content you need and build repeatable deployments utilizing MDM or shell scripts! 
 
@@ -13,8 +13,8 @@ With `ac` you can easily manage Apple audio content across a fleet of Macs. Allo
 Download the available binaries from the [releases]('github.com/w0/ac/releases'). If you don't see a build for your system. Try using the `go install` option.
 
 ## Install via `go install`
-`go install github.com/w0/ac@latest`
 
+`go install github.com/w0/ac@latest`
 
 # Usage
 
@@ -64,3 +64,28 @@ ac can attempt to install the downloaded content packages for you. You must run 
 ```bash
 ac install -p /path/to/plist.plist -m
 ```
+
+# 🤝 Contributing
+
+### Clone the repo
+
+```bash
+git clone https://github.com/w0/ac.git
+cd ac
+```
+
+### Build a release
+
+```bash
+go build
+```
+
+### Run tests
+
+```bash
+go test ./audiocontent
+```
+
+### Submit a pull request
+
+If you'd like to contribute, please fork the repository and open a pull request.
