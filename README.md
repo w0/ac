@@ -2,6 +2,8 @@
 
 `ac` is a command line utlity to help with the download of GarageBand and Logic Pro audio content files.
 
+<img width="800" src="./demo.gif" />
+
 # Installation
 
 Download the available binaries from the [releases]('github.com/w0/ac/releases'). If you don't see a build for your system. Try using the `go install` option.
